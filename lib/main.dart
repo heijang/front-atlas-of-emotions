@@ -1,32 +1,45 @@
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js' as js;
+import 'dart:js_util' as js_util;
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'emotion_report_page.dart';
+import 'user_page.dart';
 
 void main() {
   runApp(const MaterialApp(
-    home: RecorderPage(),
+    home: RecorderPageRealtime(),
     debugShowCheckedModeBanner: false,
   ));
 }
 
-class RecorderPage extends StatefulWidget {
-  const RecorderPage({Key? key}) : super(key: key);
+class RecorderPageRealtime extends StatefulWidget {
+  const RecorderPageRealtime({Key? key}) : super(key: key);
 
   @override
-  State<RecorderPage> createState() => _RecorderPageState();
+  State<RecorderPageRealtime> createState() => _RecorderPageRealtimeState();
 }
 
-class _RecorderPageState extends State<RecorderPage> {
-  html.MediaRecorder? _mediaRecorder;
-  html.MediaStream? _mediaStream;
-  html.WebSocket? _webSocket;
-  bool _isRecording = false;
-  List<Uint8List> _chunks = [];
+class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
+  WebSocketChannel? _wsChannel;
+  bool _isMicRecording = false;
+  bool _isMp3Streaming = false;
   Timer? _timer;
   int _recordSeconds = 0;
   int _lastRecordSeconds = 0;
-  bool _pendingStop = false;
+  bool _isMp3FilePicked = false;
+  String? _selectedMp3FileName;
+
+  @override
+  void initState() {
+    super.initState();
+    // 앱 시작 시 기본 mp3 파일 자동 선택
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setDefaultMp3File();
+    });
+  }
 
   @override
   void dispose() {
@@ -35,48 +48,40 @@ class _RecorderPageState extends State<RecorderPage> {
   }
 
   Future<void> _startRecording() async {
+    if (_isMicRecording) return;
     try {
-      // 1. 마이크 권한 요청 및 스트림 획득
-      final stream = await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
-      if (stream == null) throw Exception('마이크 스트림을 가져올 수 없습니다.');
-      _mediaStream = stream;
+      // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
+      if (_wsChannel == null) {
+        _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+        _wsChannel!.stream.listen((message) {
+          print('서버로부터 메시지: $message');
+        }, onDone: () {
+          print('WebSocket 연결 종료');
+        }, onError: (error) {
+          print('WebSocket 에러: $error');
+        });
+        print('WebSocket 연결 시도');
+      } else {
+        print('WebSocket 이미 연결됨');
+      }
 
-      // 2. 웹소켓 연결
-      _webSocket = html.WebSocket('ws://localhost:8000/ws');
-      _webSocket!.binaryType = 'arraybuffer';
-
-      // 3. MediaRecorder 생성 및 이벤트 핸들러 등록
-      _mediaRecorder = html.MediaRecorder(_mediaStream!);
-      _mediaRecorder!.addEventListener('dataavailable', (event) {
-        final dynamic e = event as html.Event;
-        final blob = (e as dynamic).data;
-        if (blob != null) {
-          final reader = html.FileReader();
-          reader.readAsArrayBuffer(blob);
-          reader.onLoadEnd.listen((_) {
-            if (reader.result != null && _webSocket != null && _webSocket!.readyState == html.WebSocket.OPEN) {
-              _webSocket!.send(reader.result);
-            }
-            if (_pendingStop) {
-              _webSocket?.close();
-              _webSocket = null;
-              _pendingStop = false;
-            }
-          });
-        } else {
-          if (_pendingStop) {
-            _webSocket?.close();
-            _webSocket = null;
-            _pendingStop = false;
+      // 2. JS interop으로 PCM 스트림 시작
+      js.context['onPCMChunk'] = (dynamic jsUint8Array) {
+        try {
+          final length = js_util.getProperty(jsUint8Array, 'length') as int;
+          final list = List<int>.generate(
+            length,
+            (i) => js_util.getProperty(jsUint8Array, i) as int,
+          );
+          final uint8List = Uint8List.fromList(list);
+          if (_wsChannel != null) {
+            _wsChannel!.sink.add(uint8List);
           }
+        } catch (e) {
+          print('Error converting JS Uint8Array to Uint8List: $e');
         }
-      });
-      _mediaRecorder!.addEventListener('error', (event) {
-        print('녹음 에러: $event');
-      });
-
-      // 4. 녹음 시작 (5초 단위 chunk)
-      _mediaRecorder!.start(5000); // 5000ms = 5초
+      };
+      js.context.callMethod('startPCMStream');
 
       // 타이머 시작
       _recordSeconds = _lastRecordSeconds;
@@ -88,7 +93,7 @@ class _RecorderPageState extends State<RecorderPage> {
       });
 
       setState(() {
-        _isRecording = true;
+        _isMicRecording = true;
         _lastRecordSeconds = 0;
       });
     } catch (e) {
@@ -98,16 +103,16 @@ class _RecorderPageState extends State<RecorderPage> {
   }
 
   void _stopRecording() {
-    _mediaRecorder?.stop();
-    _mediaRecorder = null;
-    _mediaStream?.getTracks().forEach((track) => track.stop());
-    _mediaStream = null;
-    _pendingStop = true;
+    js.context.callMethod('stopPCMStream');
     _timer?.cancel();
     _timer = null;
     _lastRecordSeconds = _recordSeconds;
+    if (_wsChannel != null) {
+      _wsChannel!.sink.close();
+      _wsChannel = null;
+    }
     setState(() {
-      _isRecording = false;
+      _isMicRecording = false;
     });
   }
 
@@ -117,35 +122,326 @@ class _RecorderPageState extends State<RecorderPage> {
     return '$m:$s';
   }
 
+  // mp3 파일 선택
+  Future<void> _pickMp3File() async {
+    js.context['onMp3FilePicked'] = (file) {
+      setState(() {
+        _isMp3FilePicked = true;
+        _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
+      });
+    };
+    js.context.callMethod('pickMp3File');
+  }
+
+  // mp3 스트리밍 시작
+  Future<void> _startMp3Streaming() async {
+    if (_isMp3Streaming) return;
+    // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
+    if (_wsChannel == null) {
+      _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+      _wsChannel!.stream.listen((message) {
+        print('서버로부터 메시지: $message');
+      }, onDone: () {
+        print('WebSocket 연결 종료');
+      }, onError: (error) {
+        print('WebSocket 에러: $error');
+      });
+      print('WebSocket 연결 시도');
+    } else {
+      print('WebSocket 이미 연결됨');
+    }
+    js.context['onPCMChunk'] = (dynamic jsUint8Array) {
+      try {
+        final length = js_util.getProperty(jsUint8Array, 'length') as int;
+        final list = List<int>.generate(
+          length,
+          (i) => js_util.getProperty(jsUint8Array, i) as int,
+        );
+        final uint8List = Uint8List.fromList(list);
+        if (_wsChannel != null) {
+          _wsChannel!.sink.add(uint8List);
+        }
+      } catch (e) {
+        print('Error converting JS Uint8Array to Uint8List: $e');
+      }
+    };
+    js.context.callMethod('startMp3Streaming');
+    setState(() {
+      _isMp3Streaming = true;
+      _lastRecordSeconds = 0;
+      _recordSeconds = 0;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        _recordSeconds++;
+      });
+    });
+  }
+
+  // mp3 스트리밍 정지
+  void _stopMp3Streaming() {
+    js.context.callMethod('stopMp3Streaming');
+    _timer?.cancel();
+    _timer = null;
+    _lastRecordSeconds = _recordSeconds;
+    if (_wsChannel != null) {
+      _wsChannel!.sink.close();
+      _wsChannel = null;
+    }
+    setState(() {
+      _isMp3Streaming = false;
+    });
+  }
+
+  // 기본 파일 자동 선택
+  Future<void> _setDefaultMp3File() async {
+    js.context['onMp3FilePicked'] = (file) {
+      setState(() {
+        _isMp3FilePicked = true;
+        _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
+      });
+    };
+    js.context.callMethod('setDefaultMp3File');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('녹음 및 웹소켓 전송 테스트')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          '실시간 감정 통역',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            letterSpacing: 1.2,
+            shadows: [
+              Shadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+        leading: null,
+        actions: null,
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(
-              onPressed: _isRecording ? null : _startRecording,
-              child: const Text('녹음 시작'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _isRecording ? _stopRecording : null,
-              child: const Text('정지'),
-            ),
-            const SizedBox(height: 40),
+            // 버튼 Row (타이틀 아래)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _isRecording
-                    ? const Text('🔴', style: TextStyle(color: Colors.red, fontSize: 28))
-                    : const Text('⚫️', style: TextStyle(color: Colors.black, fontSize: 28)),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                    backgroundColor: Colors.white,
+                    minimumSize: const Size(90, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const UserPage()),
+                    );
+                  },
+                  icon: const Text('🧑', style: TextStyle(fontSize: 14, color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    '사용자 등록',
+                    style: TextStyle(
+                      color: Color(0xFFFF6D00),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.blue, width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                    backgroundColor: Colors.white,
+                    minimumSize: const Size(90, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const EmotionReportPage()),
+                    );
+                  },
+                  icon: const Text('📄', style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    '감정 리포트',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            // 실시간 녹음 블럭
+            Container(
+              width: 320,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              margin: const EdgeInsets.only(bottom: 28),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD), // 연한 블루
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text('실시간 녹음', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1976D2))),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _startRecording,
+                        child: const Text('시작'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1976D2),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton(
+                        onPressed: _isMicRecording ? _stopRecording : null,
+                        child: const Text('정지'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF64B5F6), // 시작과 비슷한 블루 계열
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // mp3 전송 블럭
+            Container(
+              width: 320,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9), // 연한 그린
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text('mp3 전송', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF388E3C))),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _pickMp3File,
+                        child: const Text('파일 선택'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF388E3C),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _setDefaultMp3File,
+                        child: const Text('기본파일 선택'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF66BB6A),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: (_isMicRecording || _isMp3Streaming || !_isMp3FilePicked) ? null : _startMp3Streaming,
+                        child: const Text('시작'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF388E3C),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton(
+                        onPressed: _isMp3Streaming ? _stopMp3Streaming : null,
+                        child: const Text('정지'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isMp3Streaming ? const Color(0xFF388E3C) : const Color(0xFF81C784),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_selectedMp3FileName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.audiotrack, size: 18, color: Color(0xFF388E3C)),
+                          const SizedBox(width: 6),
+                          Text(
+                            '파일: $_selectedMp3FileName',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF388E3C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            // 녹음중/정지 이모지와 시간 표시
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                (_isMicRecording || _isMp3Streaming)
+                    ? const Text('🔴', style: TextStyle(color: Colors.red, fontSize: 20))
+                    : const Text('⚫️', style: TextStyle(color: Colors.black, fontSize: 20)),
                 const SizedBox(width: 8),
                 Text(
-                  _formatDuration(_isRecording ? _recordSeconds : _lastRecordSeconds),
-                  style: TextStyle(
-                    fontSize: 32,
+                  _formatDuration((_isMicRecording || _isMp3Streaming) ? _recordSeconds : _lastRecordSeconds),
+                  style: const TextStyle(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
@@ -157,4 +453,4 @@ class _RecorderPageState extends State<RecorderPage> {
       ),
     );
   }
-}
+} 
