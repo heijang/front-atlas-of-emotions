@@ -6,13 +6,23 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'emotion_report_page.dart';
-import 'user_page.dart';
+import 'mypage.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_provider.dart';
 
 void main() {
-  runApp(const MaterialApp(
-    home: RecorderPageRealtime(),
-    debugShowCheckedModeBanner: false,
-  ));
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: const MaterialApp(
+        home: RecorderPageRealtime(),
+        debugShowCheckedModeBanner: false,
+      ),
+    ),
+  );
 }
 
 class RecorderPageRealtime extends StatefulWidget {
@@ -66,6 +76,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
       }
 
       // 2. JS interop으로 PCM 스트림 시작
+      bool audioEventSent = false;
       js.context['onPCMChunk'] = (dynamic jsUint8Array) {
         try {
           final length = js_util.getProperty(jsUint8Array, 'length') as int;
@@ -75,6 +86,11 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
           );
           final uint8List = Uint8List.fromList(list);
           if (_wsChannel != null) {
+            if (!audioEventSent) {
+              print('[WebSocket] audio_data 이벤트 전송');
+              _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+              audioEventSent = true;
+            }
             _wsChannel!.sink.add(uint8List);
           }
         } catch (e) {
@@ -150,6 +166,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
     } else {
       print('WebSocket 이미 연결됨');
     }
+    bool audioEventSent = false;
     js.context['onPCMChunk'] = (dynamic jsUint8Array) {
       try {
         final length = js_util.getProperty(jsUint8Array, 'length') as int;
@@ -159,6 +176,11 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         );
         final uint8List = Uint8List.fromList(list);
         if (_wsChannel != null) {
+          if (!audioEventSent) {
+            print('[WebSocket] audio_data 이벤트 전송');
+            _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+            audioEventSent = true;
+          }
           _wsChannel!.sink.add(uint8List);
         }
       } catch (e) {
@@ -227,7 +249,35 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
           ),
         ),
         leading: null,
-        actions: null,
+        actions: [
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) {
+              if (auth.isLoggedIn && auth.userName != null && auth.userName!.isNotEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    child: Text(
+                      '${auth.userName} 님',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFFFF6D00),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                return const SizedBox.shrink();
+              }
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Column(
@@ -249,18 +299,20 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
                   ),
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const UserPage()),
+                      MaterialPageRoute(builder: (_) => const MyPage()),
                     );
                   },
                   icon: const Text('🧑', style: TextStyle(fontSize: 14, color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
-                  label: const Text(
-                    '사용자 등록',
-                    style: TextStyle(
-                      color: Color(0xFFFF6D00),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                  label: Consumer<AuthProvider>(
+                    builder: (context, auth, _) => Text(
+                      auth.isLoggedIn ? '마이페이지' : '회원가입',
+                      style: const TextStyle(
+                        color: Color(0xFFFF6D00),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
