@@ -236,7 +236,7 @@ class _MyPageState extends State<MyPage> {
               children: [
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                   label: const Text(
                     '돌아가기',
                     style: TextStyle(
@@ -331,7 +331,7 @@ class _MyPageState extends State<MyPage> {
               children: [
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                   label: const Text(
                     '돌아가기',
                     style: TextStyle(
@@ -438,7 +438,7 @@ class _MyPageState extends State<MyPage> {
             children: [
               TextButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                 label: const Text(
                   '돌아가기',
                   style: TextStyle(
