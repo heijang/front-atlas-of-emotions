@@ -46,3 +46,5 @@ app.*.map.json
 
 # Android build reports
 android/build/reports/
+
+.env

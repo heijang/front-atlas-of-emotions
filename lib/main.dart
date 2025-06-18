@@ -10,8 +10,10 @@ import 'mypage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  await dotenv.load();
   runApp(
     MultiProvider(
       providers: [
@@ -23,6 +25,14 @@ void main() {
       ),
     ),
   );
+}
+
+String getApiBaseUrl() {
+  return dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+}
+
+String getWsBaseUrl() {
+  return dotenv.env['WS_BASE_URL'] ?? 'ws://localhost:8000';
 }
 
 class RecorderPageRealtime extends StatefulWidget {
@@ -62,7 +72,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
     try {
       // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
       if (_wsChannel == null) {
-        _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+        _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
         _wsChannel!.stream.listen((message) {
           print('서버로부터 메시지: $message');
         }, onDone: () {
@@ -162,7 +172,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
     if (_isMp3Streaming) return;
     // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
     if (_wsChannel == null) {
-      _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+      _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
       _wsChannel!.stream.listen((message) {
         print('서버로부터 메시지: $message');
       }, onDone: () {

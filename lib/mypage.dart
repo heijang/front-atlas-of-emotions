@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'auth_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -84,7 +85,7 @@ class _MyPageState extends State<MyPage> {
     if (_isStreaming) return;
     setState(() { _isSending = true; });
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+    _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
     _wsChannel!.sink.add(jsonEncode({
       'event': 'register_user',
       'user_info': {
@@ -139,7 +140,7 @@ class _MyPageState extends State<MyPage> {
     }
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/login'),
+        Uri.parse('${getApiBaseUrl()}/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'user_id': userId}),
       );
@@ -167,20 +168,16 @@ class _MyPageState extends State<MyPage> {
     final userId = _userIdController.text.trim();
     final userName = _userNameController.text.trim();
     try {
-      // TODO: Replace with your backend API endpoint
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/signup'),
+        Uri.parse('${getApiBaseUrl()}/api/signup'),
         headers: {'Content-Type': 'application/json'},
         body: '{"user_id": "$userId", "user_name": "$userName"}',
       );
       if (response.statusCode == 200) {
-        // Parse response JSON
         final data = jsonDecode(response.body);
         final serverUserId = data['user_id'] ?? userId;
         final serverUserName = data['user_name'] ?? userName;
-        // 성공 시 Provider로 로그인 처리
         await Provider.of<AuthProvider>(context, listen: false).login(serverUserId, serverUserName);
-        // 회원가입 성공 모달 표시
         await showDialog(
           context: context,
           barrierDismissible: false,
@@ -199,7 +196,6 @@ class _MyPageState extends State<MyPage> {
             ],
           ),
         );
-        // 이후 화면 전환(마이페이지로 자동 전환됨)
       } else {
         setState(() { _error = '회원가입 실패: ${response.body}'; });
       }
@@ -233,7 +229,6 @@ class _MyPageState extends State<MyPage> {
     final auth = Provider.of<AuthProvider>(context);
     if (!auth.isLoggedIn) {
       if (!_showSignup) {
-        // 로그인 폼
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -241,7 +236,7 @@ class _MyPageState extends State<MyPage> {
               children: [
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                   label: const Text(
                     '돌아가기',
                     style: TextStyle(
@@ -329,7 +324,6 @@ class _MyPageState extends State<MyPage> {
           ),
         );
       } else {
-        // 회원가입 폼
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -337,7 +331,7 @@ class _MyPageState extends State<MyPage> {
               children: [
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                   label: const Text(
                     '돌아가기',
                     style: TextStyle(
@@ -437,7 +431,6 @@ class _MyPageState extends State<MyPage> {
         );
       }
     } else {
-      // 기존 마이페이지 내용
       return Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -445,7 +438,7 @@ class _MyPageState extends State<MyPage> {
             children: [
               TextButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                icon: const Text('��', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
                 label: const Text(
                   '돌아가기',
                   style: TextStyle(
@@ -556,5 +549,13 @@ class _MyPageState extends State<MyPage> {
         ),
       );
     }
+  }
+
+  String getApiBaseUrl() {
+    return dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+  }
+
+  String getWsBaseUrl() {
+    return dotenv.env['WS_BASE_URL'] ?? 'ws://localhost:8000';
   }
 } 
