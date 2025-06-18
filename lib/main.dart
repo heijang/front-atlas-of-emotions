@@ -453,7 +453,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: (_isMicRecording || _isM3Streaming) ? null : _setDefaultMp3File,
+                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _setDefaultMp3File,
                         child: const Text('기본파일 선택'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF66BB6A),
