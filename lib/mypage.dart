@@ -28,6 +28,9 @@ class _MyPageState extends State<MyPage> {
   bool _isSending = false;
   final String _userId = '1';
   final String _userName = '홍길동';
+  bool _showSignup = false;
+  WebSocketChannel? _wsChannel;
+  bool _isStreaming = false;
 
   @override
   void initState() {
@@ -36,7 +39,7 @@ class _MyPageState extends State<MyPage> {
   }
 
   Future<void> _setDefaultMp3File() async {
-    js.context['onMp3FilePicked'] = (file) async {
+    js.context['onMp3FilePickedForMypage'] = (file) async {
       if (file == null) {
         setState(() {
           _selectedFileBytes = null;
@@ -53,56 +56,109 @@ class _MyPageState extends State<MyPage> {
         _selectedFileName = name;
       });
     };
-    js.context.callMethod('eval', [
-      '''(async function() {
-        const url = "resources/sample1_man_voice.mp3";
-        try {
-          const res = await fetch(url);
-          const blob = await res.blob();
-          const file = new File([blob], 'sample1_man_voice.mp3', { type: 'audio/mp3' });
-          window._selectedMp3File = file;
-          if (window.onMp3FilePicked) window.onMp3FilePicked(file);
-        } catch (e) {
-          alert('기본 mp3 파일을 불러올 수 없습니다. resources 폴더에 sample1_man_voice.mp3가 있어야 합니다.');
-        }
-      })()'''
-    ]);
+    js.context.callMethod('setDefaultMp3FileForMypage');
   }
 
   Future<void> _pickFile() async {
-    final uploadInput = html.FileUploadInputElement();
-    uploadInput.accept = '.mp3,audio/*';
-    uploadInput.click();
-    uploadInput.onChange.listen((e) {
-      final file = uploadInput.files?.first;
-      if (file != null) {
-        final reader = html.FileReader();
-        reader.readAsArrayBuffer(file);
-        reader.onLoadEnd.listen((event) {
-          setState(() {
-            _selectedFileBytes = reader.result as Uint8List;
-            _selectedFileName = file.name;
-          });
+    js.context['onMp3FilePickedForMypage'] = (file) async {
+      if (file == null) {
+        setState(() {
+          _selectedFileBytes = null;
+          _selectedFileName = '기본 파일 로드 실패';
         });
+        return;
       }
-    });
+      final name = js_util.getProperty(file, 'name');
+      final promise = js_util.callMethod(file, 'arrayBuffer', []);
+      final buffer = await js_util.promiseToFuture(promise);
+      final bytes = Uint8List.view((buffer as ByteBuffer));
+      setState(() {
+        _selectedFileBytes = bytes;
+        _selectedFileName = name;
+      });
+    };
+    js.context.callMethod('pickMp3FileForMypage');
   }
 
-  Future<void> _sendFile() async {
-    if (_selectedFileBytes == null) return;
+  Future<void> _startMp3StreamingForMypage() async {
+    if (_isStreaming) return;
     setState(() { _isSending = true; });
-    final ws = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
-    ws.sink.add(jsonEncode({
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    _wsChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws'));
+    _wsChannel!.sink.add(jsonEncode({
       'event': 'register_user',
       'user_info': {
-        'user_id': _userId,
-        'name': _userName,
+        'user_id': auth.userId ?? '',
       }
     }));
-    await Future.delayed(const Duration(milliseconds: 200));
-    ws.sink.add(_selectedFileBytes!);
-    setState(() { _isSending = false; });
-    ws.sink.close();
+    bool streamEnded = false;
+    bool audioEventSent = false;
+    js.context['onPCMChunk'] = (dynamic jsUint8Array) {
+      try {
+        final length = js_util.getProperty(jsUint8Array, 'length') as int;
+        final list = List<int>.generate(
+          length,
+          (i) => js_util.getProperty(jsUint8Array, i) as int,
+        );
+        final uint8List = Uint8List.fromList(list);
+        if (_wsChannel != null && !streamEnded) {
+          if (!audioEventSent) {
+            print('[WebSocket] audio_data 이벤트 전송');
+            _wsChannel!.sink.add(jsonEncode({
+              "event": "audio_data",
+              "user_info": {"user_id": auth.userId}
+            }));
+            audioEventSent = true;
+          }
+          _wsChannel!.sink.add(uint8List);
+        }
+      } catch (e) {
+        print('Error converting JS Uint8Array to Uint8List: $e');
+      }
+    };
+    js.context['onMp3StreamEnd'] = () {
+      if (!streamEnded) {
+        streamEnded = true;
+        setState(() { _isSending = false; _isStreaming = false; });
+        if (_wsChannel != null) {
+          _wsChannel!.sink.close();
+          _wsChannel = null;
+        }
+      }
+    };
+    js.context.callMethod('startMp3StreamingForMypage');
+    setState(() { _isStreaming = true; });
+  }
+
+  Future<void> _login(BuildContext context) async {
+    setState(() { _isLoading = true; _error = null; });
+    final userId = _userIdController.text.trim();
+    if (userId.isEmpty) {
+      setState(() { _error = 'User ID를 입력하세요'; _isLoading = false; });
+      return;
+    }
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          await Provider.of<AuthProvider>(context, listen: false)
+              .login(data['user_id'], data['user_name'] ?? '');
+        } else {
+          setState(() { _error = '로그인 실패'; });
+        }
+      } else {
+        setState(() { _error = '로그인 실패'; });
+      }
+    } catch (e) {
+      setState(() { _error = '네트워크 오류: $e'; });
+    } finally {
+      setState(() { _isLoading = false; });
+    }
   }
 
   Future<void> _signup(BuildContext context) async {
@@ -135,7 +191,8 @@ class _MyPageState extends State<MyPage> {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // 닫기
+                  Navigator.of(context).pop();
+                  setState(() { _showSignup = false; });
                 },
                 child: const Text('확인', style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
               ),
@@ -153,88 +210,232 @@ class _MyPageState extends State<MyPage> {
     }
   }
 
+  void _switchToSignup() {
+    setState(() {
+      _showSignup = true;
+      _error = null;
+      _userIdController.clear();
+      _userNameController.clear();
+    });
+  }
+
+  void _switchToLogin() {
+    setState(() {
+      _showSignup = false;
+      _error = null;
+      _userIdController.clear();
+      _userNameController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     if (!auth.isLoggedIn) {
-      // 회원가입 폼
-      return Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
-                label: const Text(
-                  '돌아가기',
-                  style: TextStyle(
-                    color: Color(0xFFFF6D00),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+      if (!_showSignup) {
+        // 로그인 폼
+        return Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  label: const Text(
+                    '돌아가기',
+                    style: TextStyle(
+                      color: Color(0xFFFF6D00),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Color(0xFFFF6D00),
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Color(0xFFFF6D00),
-                ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+            elevation: 0,
           ),
-          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-          elevation: 0,
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('회원가입', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: 280,
-                      child: TextFormField(
-                        controller: _userIdController,
-                        decoration: const InputDecoration(labelText: 'User ID'),
-                        validator: (v) => v == null || v.isEmpty ? 'User ID를 입력하세요' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: 280,
-                      child: TextFormField(
-                        controller: _userNameController,
-                        decoration: const InputDecoration(labelText: 'User Name'),
-                        validator: (v) => v == null || v.isEmpty ? 'User Name을 입력하세요' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (_error != null) ...[
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 12),
-                    ],
-                    SizedBox(
-                      width: 180,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : () => _signup(context),
-                        child: _isLoading ? const CircularProgressIndicator() : const Text('회원가입'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6D00),
-                          foregroundColor: Colors.white,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('로그인', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: 280,
+                        child: TextFormField(
+                          controller: _userIdController,
+                          decoration: const InputDecoration(
+                            hintText: '사용자 ID',
+                          ),
+                          validator: (v) => v == null || v.isEmpty ? 'User ID를 입력하세요' : null,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      if (_error != null) ...[
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 120,
+                            height: 38,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : () => _login(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFF6D00),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                textStyle: const TextStyle(fontSize: 15),
+                              ),
+                              child: _isLoading ? const CircularProgressIndicator() : const Text('로그인'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 120,
+                            height: 38,
+                            child: OutlinedButton(
+                              onPressed: _isLoading ? null : _switchToSignup,
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFFFF6D00),
+                                side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                textStyle: const TextStyle(fontSize: 15),
+                              ),
+                              child: const Text('회원가입'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      } else {
+        // 회원가입 폼
+        return Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
+                  label: const Text(
+                    '돌아가기',
+                    style: TextStyle(
+                      color: Color(0xFFFF6D00),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Color(0xFFFF6D00),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+            elevation: 0,
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('회원가입', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: 280,
+                        child: TextFormField(
+                          controller: _userIdController,
+                          decoration: const InputDecoration(
+                            hintText: '사용자 ID',
+                          ),
+                          validator: (v) => v == null || v.isEmpty ? 'User ID를 입력하세요' : null,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 280,
+                        child: TextFormField(
+                          controller: _userNameController,
+                          decoration: const InputDecoration(
+                            hintText: '사용자 이름',
+                          ),
+                          validator: (v) => v == null || v.isEmpty ? 'User Name을 입력하세요' : null,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_error != null) ...[
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 120,
+                            height: 38,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : () => _signup(context),
+                              child: _isLoading ? const CircularProgressIndicator() : const Text('회원가입'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFF6D00),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                textStyle: const TextStyle(fontSize: 15),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 120,
+                            height: 38,
+                            child: OutlinedButton(
+                              onPressed: _isLoading ? null : _switchToLogin,
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFFFF6D00),
+                                side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                textStyle: const TextStyle(fontSize: 15),
+                              ),
+                              child: const Text('로그인'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     } else {
       // 기존 마이페이지 내용
       return Scaffold(
@@ -301,7 +502,7 @@ class _MyPageState extends State<MyPage> {
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton(
-                          onPressed: _isSending || _selectedFileBytes == null ? null : _sendFile,
+                          onPressed: _isSending || _selectedFileName == null || _selectedFileName == '기본 파일 로드 실패' ? null : _startMp3StreamingForMypage,
                           child: _isSending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('음성 파일 전송'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFFA726),
@@ -325,6 +526,28 @@ class _MyPageState extends State<MyPage> {
                       ],
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Spacer(),
+              Center(
+                child: SizedBox(
+                  width: 120,
+                  height: 38,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      await Provider.of<AuthProvider>(context, listen: false).logout();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFFFF6D00),
+                      side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                      textStyle: const TextStyle(fontSize: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0),
+                    ),
+                    child: const Text('로그아웃'),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),

@@ -88,7 +88,15 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
           if (_wsChannel != null) {
             if (!audioEventSent) {
               print('[WebSocket] audio_data 이벤트 전송');
-              _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+              final auth = Provider.of<AuthProvider>(context, listen: false);
+              if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
+                _wsChannel!.sink.add(jsonEncode({
+                  "event": "audio_data",
+                  "user_info": {"user_id": auth.userId}
+                }));
+              } else {
+                _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+              }
               audioEventSent = true;
             }
             _wsChannel!.sink.add(uint8List);
@@ -140,13 +148,13 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
 
   // mp3 파일 선택
   Future<void> _pickMp3File() async {
-    js.context['onMp3FilePicked'] = (file) {
+    js.context['onMp3FilePickedForMain'] = (file) {
       setState(() {
         _isMp3FilePicked = true;
         _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
       });
     };
-    js.context.callMethod('pickMp3File');
+    js.context.callMethod('pickMp3FileForMain');
   }
 
   // mp3 스트리밍 시작
@@ -178,7 +186,15 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         if (_wsChannel != null) {
           if (!audioEventSent) {
             print('[WebSocket] audio_data 이벤트 전송');
-            _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+            final auth = Provider.of<AuthProvider>(context, listen: false);
+            if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
+              _wsChannel!.sink.add(jsonEncode({
+                "event": "audio_data",
+                "user_info": {"user_id": auth.userId}
+              }));
+            } else {
+              _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
+            }
             audioEventSent = true;
           }
           _wsChannel!.sink.add(uint8List);
@@ -187,7 +203,16 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         print('Error converting JS Uint8Array to Uint8List: $e');
       }
     };
-    js.context.callMethod('startMp3Streaming');
+    js.context['onMp3StreamEnd'] = () {
+      if (_wsChannel != null) {
+        _wsChannel!.sink.close();
+        _wsChannel = null;
+      }
+      setState(() {
+        _isMp3Streaming = false;
+      });
+    };
+    js.context.callMethod('startMp3StreamingForMain');
     setState(() {
       _isMp3Streaming = true;
       _lastRecordSeconds = 0;
@@ -218,13 +243,13 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
 
   // 기본 파일 자동 선택
   Future<void> _setDefaultMp3File() async {
-    js.context['onMp3FilePicked'] = (file) {
+    js.context['onMp3FilePickedForMain'] = (file) {
       setState(() {
         _isMp3FilePicked = true;
         _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
       });
     };
-    js.context.callMethod('setDefaultMp3File');
+    js.context.callMethod('setDefaultMp3FileForMain');
   }
 
   @override
@@ -305,7 +330,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
                   icon: const Text('🧑', style: TextStyle(fontSize: 14, color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
                   label: Consumer<AuthProvider>(
                     builder: (context, auth, _) => Text(
-                      auth.isLoggedIn ? '마이페이지' : '회원가입',
+                      auth.isLoggedIn ? '마이페이지' : '로그인',
                       style: const TextStyle(
                         color: Color(0xFFFF6D00),
                         fontWeight: FontWeight.bold,
@@ -428,7 +453,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _setDefaultMp3File,
+                        onPressed: (_isMicRecording || _isM3Streaming) ? null : _setDefaultMp3File,
                         child: const Text('기본파일 선택'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF66BB6A),
