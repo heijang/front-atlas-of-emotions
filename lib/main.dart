@@ -13,7 +13,8 @@ import 'auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
-  await dotenv.load();
+  await dotenv.load(fileName: 'ENV/.env');
+  print('[dotenv] .env loaded: API_BASE_URL = \'${dotenv.env['API_BASE_URL']}\', WS_BASE_URL = \'${dotenv.env['WS_BASE_URL']}\'');
   runApp(
     MultiProvider(
       providers: [
