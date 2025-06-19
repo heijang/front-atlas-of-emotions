@@ -53,6 +53,10 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
   bool _isMp3FilePicked = false;
   String? _selectedMp3FileName;
 
+  // 추가: 화자/감정 상태 변수
+  String? _speaker; // '본인' 또는 '상대방'
+  String? _topEmotion; // 가장 높은 감정(한글)
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +80,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
         _wsChannel!.stream.listen((message) {
           print('서버로부터 메시지: $message');
+          _handleWsMessage(message); // 메시지 핸들링 추가
         }, onDone: () {
           print('WebSocket 연결 종료');
         }, onError: (error) {
@@ -176,6 +181,7 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
       _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
       _wsChannel!.stream.listen((message) {
         print('서버로부터 메시지: $message');
+        _handleWsMessage(message); // 메시지 핸들링 추가
       }, onDone: () {
         print('WebSocket 연결 종료');
       }, onError: (error) {
@@ -263,6 +269,35 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
     js.context.callMethod('setDefaultMp3FileForMain');
   }
 
+  // WebSocket 메시지 핸들러
+  void _handleWsMessage(dynamic message) {
+    try {
+      // JSON 형식이 아니면 무시
+      if (message is! String || !message.trim().startsWith('{') || !message.trim().endsWith('}')) {
+        return;
+      }
+      final data = jsonDecode(message);
+      if (data is Map) {
+        if (data['event'] == 'emotion_analysis') {
+          final isSame = data['is_same'] as bool?;
+          final emotion = data['emotion'] as Map<String, dynamic>?;
+          String? koreanEmotion;
+          if (emotion != null && emotion['audio'] != null && emotion['audio']['korean'] != null) {
+            koreanEmotion = emotion['audio']['korean'] as String;
+          }
+          if (isSame != null && koreanEmotion != null) {
+            setState(() {
+              _speaker = isSame ? '본인' : '상대방';
+              _topEmotion = koreanEmotion;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('WebSocket 메시지 파싱 오류: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -319,6 +354,24 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // 화자/감정 표시 영역 추가
+            if (_speaker != null && _topEmotion != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.yellow[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber, width: 1.2),
+                ),
+                child: Column(
+                  children: [
+                    Text('화자: $_speaker', style: const TextStyle(fontSize: 18)),
+                    const SizedBox(height: 8),
+                    Text('감정: $_topEmotion', style: const TextStyle(fontSize: 18)),
+                  ],
+                ),
+              ),
             // 버튼 Row (타이틀 아래)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
