@@ -69,30 +69,30 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
   @override
   void dispose() {
     _stopRecording();
+    _stopMp3Streaming(); // dispose 시 mp3 스트리밍도 정지
     super.dispose();
   }
 
   Future<void> _startRecording() async {
     if (_isMicRecording) return;
     try {
-      // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
+      // 1. WebSocket 연결
       if (_wsChannel == null) {
-        _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
+        _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws/analyze'));
         _wsChannel!.stream.listen((message) {
           print('서버로부터 메시지: $message');
-          _handleWsMessage(message); // 메시지 핸들링 추가
+          _handleWsMessage(message);
         }, onDone: () {
           print('WebSocket 연결 종료');
+          _wsChannel = null; // 연결 종료 시 채널 null 처리
         }, onError: (error) {
           print('WebSocket 에러: $error');
+          _wsChannel = null;
         });
         print('WebSocket 연결 시도');
-      } else {
-        print('WebSocket 이미 연결됨');
       }
 
-      // 2. JS interop으로 PCM 스트림 시작
-      bool audioEventSent = false;
+      // 2. JS interop 콜백 설정
       js.context['onPCMChunk'] = (dynamic jsUint8Array) {
         try {
           final length = js_util.getProperty(jsUint8Array, 'length') as int;
@@ -102,39 +102,32 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
           );
           final uint8List = Uint8List.fromList(list);
           if (_wsChannel != null) {
-            if (!audioEventSent) {
-              print('[WebSocket] audio_data 이벤트 전송');
-              final auth = Provider.of<AuthProvider>(context, listen: false);
-              if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
-                _wsChannel!.sink.add(jsonEncode({
-                  "event": "audio_data",
-                  "user_info": {"user_id": auth.userId}
-                }));
-              } else {
-                _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
-              }
-              audioEventSent = true;
-            }
             _wsChannel!.sink.add(uint8List);
           }
         } catch (e) {
           print('Error converting JS Uint8Array to Uint8List: $e');
         }
       };
-      js.context.callMethod('startPCMStream');
 
-      // 타이머 시작
-      _recordSeconds = _lastRecordSeconds;
+      // 3. 서버에 스트림 시작 요청
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      _wsChannel!.sink.add(jsonEncode({
+        "event": "send_conversation",
+        "user_info": auth.isLoggedIn ? {"user_id": auth.userId} : null
+      }));
+      
+      // 4. UI 상태 변경 및 타이머 시작
+      setState(() {
+        _isMicRecording = true;
+        _lastRecordSeconds = 0;
+        _recordSeconds = 0;
+      });
+      
       _timer?.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         setState(() {
           _recordSeconds++;
         });
-      });
-
-      setState(() {
-        _isMicRecording = true;
-        _lastRecordSeconds = 0;
       });
     } catch (e) {
       print('녹음 시작 실패: $e');
@@ -176,22 +169,24 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
   // mp3 스트리밍 시작
   Future<void> _startMp3Streaming() async {
     if (_isMp3Streaming) return;
-    // 1. WebSocket 연결 (이미 연결되어 있으면 재연결하지 않음)
+
+    // 1. WebSocket 연결
     if (_wsChannel == null) {
-      _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
+      _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws/analyze'));
       _wsChannel!.stream.listen((message) {
         print('서버로부터 메시지: $message');
-        _handleWsMessage(message); // 메시지 핸들링 추가
+        _handleWsMessage(message);
       }, onDone: () {
         print('WebSocket 연결 종료');
+        _wsChannel = null;
       }, onError: (error) {
         print('WebSocket 에러: $error');
+        _wsChannel = null;
       });
       print('WebSocket 연결 시도');
-    } else {
-      print('WebSocket 이미 연결됨');
     }
-    bool audioEventSent = false;
+
+    // 2. JS interop 콜백 설정
     js.context['onPCMChunk'] = (dynamic jsUint8Array) {
       try {
         final length = js_util.getProperty(jsUint8Array, 'length') as int;
@@ -201,19 +196,6 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         );
         final uint8List = Uint8List.fromList(list);
         if (_wsChannel != null) {
-          if (!audioEventSent) {
-            print('[WebSocket] audio_data 이벤트 전송');
-            final auth = Provider.of<AuthProvider>(context, listen: false);
-            if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
-              _wsChannel!.sink.add(jsonEncode({
-                "event": "audio_data",
-                "user_info": {"user_id": auth.userId}
-              }));
-            } else {
-              _wsChannel!.sink.add(jsonEncode({"event": "audio_data"}));
-            }
-            audioEventSent = true;
-          }
           _wsChannel!.sink.add(uint8List);
         }
       } catch (e) {
@@ -229,12 +211,21 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
         _isMp3Streaming = false;
       });
     };
-    js.context.callMethod('startMp3StreamingForMain');
+
+    // 3. 서버에 스트림 시작 요청
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    _wsChannel!.sink.add(jsonEncode({
+      "event": "send_conversation",
+      "user_info": auth.isLoggedIn ? {"user_id": auth.userId} : null
+    }));
+
+    // 4. UI 상태 변경 및 타이머 시작
     setState(() {
       _isMp3Streaming = true;
       _lastRecordSeconds = 0;
       _recordSeconds = 0;
     });
+
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
@@ -278,7 +269,8 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
       }
       final data = jsonDecode(message);
       if (data is Map) {
-        if (data['event'] == 'emotion_analysis') {
+        final event = data['event'];
+        if (event == 'emotion_analysis') {
           final isSame = data['is_same'] as bool?;
           final emotion = data['emotion'] as Map<String, dynamic>?;
           String? koreanEmotion;
@@ -290,6 +282,15 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
               _speaker = isSame ? '본인' : '상대방';
               _topEmotion = koreanEmotion;
             });
+          }
+        } else if (event == 'send_conversation' && data['status'] == 'ok') {
+          // 서버가 준비되었으므로, 현재 상태에 따라 JS 스트리밍 함수 호출
+          if (_isMicRecording) {
+            js.context.callMethod('startPCMStream');
+            print('서버 준비 완료. PCM 스트림 시작.');
+          } else if (_isMp3Streaming) {
+            js.context.callMethod('startMp3StreamingForMain');
+            print('서버 준비 완료. MP3 스트림 시작.');
           }
         }
       }

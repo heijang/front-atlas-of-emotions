@@ -85,15 +85,14 @@ class _MyPageState extends State<MyPage> {
     if (_isStreaming) return;
     setState(() { _isSending = true; });
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws'));
+    _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws/users'));
     _wsChannel!.sink.add(jsonEncode({
-      'event': 'register_user',
+      'event': 'register_voice',
       'user_info': {
         'user_id': auth.userId ?? '',
       }
     }));
     bool streamEnded = false;
-    bool audioEventSent = false;
     js.context['onPCMChunk'] = (dynamic jsUint8Array) {
       try {
         final length = js_util.getProperty(jsUint8Array, 'length') as int;
@@ -103,14 +102,6 @@ class _MyPageState extends State<MyPage> {
         );
         final uint8List = Uint8List.fromList(list);
         if (_wsChannel != null && !streamEnded) {
-          if (!audioEventSent) {
-            print('[WebSocket] audio_data 이벤트 전송');
-            _wsChannel!.sink.add(jsonEncode({
-              "event": "audio_data",
-              "user_info": {"user_id": auth.userId}
-            }));
-            audioEventSent = true;
-          }
           _wsChannel!.sink.add(uint8List);
         }
       } catch (e) {
@@ -140,7 +131,7 @@ class _MyPageState extends State<MyPage> {
     }
     try {
       final response = await http.post(
-        Uri.parse('${getApiBaseUrl()}/api/login'),
+        Uri.parse('${getApiBaseUrl()}/api/v1/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'user_id': userId}),
       );
@@ -169,7 +160,7 @@ class _MyPageState extends State<MyPage> {
     final userName = _userNameController.text.trim();
     try {
       final response = await http.post(
-        Uri.parse('${getApiBaseUrl()}/api/signup'),
+        Uri.parse('${getApiBaseUrl()}/api/v1/users'),
         headers: {'Content-Type': 'application/json'},
         body: '{"user_id": "$userId", "user_name": "$userName"}',
       );
