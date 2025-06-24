@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'home.dart';
 
 void main() async {
   await dotenv.load(fileName: 'ENV/.env');
@@ -426,6 +427,34 @@ class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
                     '감정 리포트',
                     style: TextStyle(
                       color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 테스트용 Home 이동 버튼
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.green, width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                    backgroundColor: Colors.white,
+                    minimumSize: const Size(90, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const HomePage()),
+                    );
+                  },
+                  icon: const Icon(Icons.home, color: Colors.green, size: 18),
+                  label: const Text(
+                    'Home(테스트)',
+                    style: TextStyle(
+                      color: Colors.green,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
