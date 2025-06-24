@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class EmotionReportPage extends StatelessWidget {
-  const EmotionReportPage({super.key});
+  final String userConversationMasterUid;
+  const EmotionReportPage({Key? key, required this.userConversationMasterUid}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -30,8 +31,15 @@ class EmotionReportPage extends StatelessWidget {
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
       ),
-      body: const Center(
-        child: Text('감정 리포트 페이지', style: TextStyle(fontSize: 24)),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('감정 리포트 페이지', style: TextStyle(fontSize: 24)),
+            const SizedBox(height: 16),
+            Text('UID: $userConversationMasterUid', style: const TextStyle(fontSize: 16, color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }

@@ -1,626 +1,286 @@
-import 'dart:async';
-import 'dart:js' as js;
-import 'dart:js_util' as js_util;
-import 'dart:typed_data';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'emotion_report_page.dart';
-import 'mypage.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'emotion_report_list.dart';
+import 'realtime_emotional_translation.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
+import 'mypage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'home.dart';
 
-void main() async {
-  await dotenv.load(fileName: 'ENV/.env');
-  print('[dotenv] .env loaded: API_BASE_URL = \'${dotenv.env['API_BASE_URL']}\', WS_BASE_URL = \'${dotenv.env['WS_BASE_URL']}\'');
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
-      child: const MaterialApp(
-        home: RecorderPageRealtime(),
-        debugShowCheckedModeBanner: false,
-      ),
-    ),
-  );
-}
-
-String getApiBaseUrl() {
-  return dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
-}
-
-String getWsBaseUrl() {
-  return dotenv.env['WS_BASE_URL'] ?? 'ws://localhost:8000';
-}
-
-class RecorderPageRealtime extends StatefulWidget {
-  const RecorderPageRealtime({Key? key}) : super(key: key);
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<RecorderPageRealtime> createState() => _RecorderPageRealtimeState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _RecorderPageRealtimeState extends State<RecorderPageRealtime> {
-  WebSocketChannel? _wsChannel;
-  bool _isMicRecording = false;
-  bool _isMp3Streaming = false;
-  Timer? _timer;
-  int _recordSeconds = 0;
-  int _lastRecordSeconds = 0;
-  bool _isMp3FilePicked = false;
-  String? _selectedMp3FileName;
+class _HomePageState extends State<HomePage> {
+  bool _showBanner = true;
+  int _selectedIndex = 0;
 
-  // 추가: 화자/감정 상태 변수
-  String? _speaker; // '본인' 또는 '상대방'
-  String? _topEmotion; // 가장 높은 감정(한글)
-
-  @override
-  void initState() {
-    super.initState();
-    // 앱 시작 시 기본 mp3 파일 자동 선택
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setDefaultMp3File();
-    });
-  }
-
-  @override
-  void dispose() {
-    _stopRecording();
-    _stopMp3Streaming(); // dispose 시 mp3 스트리밍도 정지
-    super.dispose();
-  }
-
-  Future<void> _startRecording() async {
-    if (_isMicRecording) return;
-    try {
-      // 1. WebSocket 연결
-      if (_wsChannel == null) {
-        _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws/analyze'));
-        _wsChannel!.stream.listen((message) {
-          print('서버로부터 메시지: $message');
-          _handleWsMessage(message);
-        }, onDone: () {
-          print('WebSocket 연결 종료');
-          _wsChannel = null; // 연결 종료 시 채널 null 처리
-        }, onError: (error) {
-          print('WebSocket 에러: $error');
-          _wsChannel = null;
-        });
-        print('WebSocket 연결 시도');
-      }
-
-      // 2. JS interop 콜백 설정
-      js.context['onPCMChunk'] = (dynamic jsUint8Array) {
-        try {
-          final length = js_util.getProperty(jsUint8Array, 'length') as int;
-          final list = List<int>.generate(
-            length,
-            (i) => js_util.getProperty(jsUint8Array, i) as int,
-          );
-          final uint8List = Uint8List.fromList(list);
-          if (_wsChannel != null) {
-            _wsChannel!.sink.add(uint8List);
-          }
-        } catch (e) {
-          print('Error converting JS Uint8Array to Uint8List: $e');
-        }
-      };
-
-      // 3. 서버에 스트림 시작 요청
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      _wsChannel!.sink.add(jsonEncode({
-        "event": "send_conversation",
-        "user_info": auth.isLoggedIn ? {"user_id": auth.userId} : null
-      }));
-      
-      // 4. UI 상태 변경 및 타이머 시작
-      setState(() {
-        _isMicRecording = true;
-        _lastRecordSeconds = 0;
-        _recordSeconds = 0;
-      });
-      
-      _timer?.cancel();
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        setState(() {
-          _recordSeconds++;
-        });
-      });
-    } catch (e) {
-      print('녹음 시작 실패: $e');
-      _stopRecording();
-    }
-  }
-
-  void _stopRecording() {
-    js.context.callMethod('stopPCMStream');
-    _timer?.cancel();
-    _timer = null;
-    _lastRecordSeconds = _recordSeconds;
-    if (_wsChannel != null) {
-      _wsChannel!.sink.close();
-      _wsChannel = null;
-    }
+  void _onItemTapped(int index) {
     setState(() {
-      _isMicRecording = false;
+      _selectedIndex = index;
     });
-  }
-
-  String _formatDuration(int seconds) {
-    final m = (seconds ~/ 60).toString().padLeft(2, '0');
-    final s = (seconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  // mp3 파일 선택
-  Future<void> _pickMp3File() async {
-    js.context['onMp3FilePickedForMain'] = (file) {
-      setState(() {
-        _isMp3FilePicked = true;
-        _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
-      });
-    };
-    js.context.callMethod('pickMp3FileForMain');
-  }
-
-  // mp3 스트리밍 시작
-  Future<void> _startMp3Streaming() async {
-    if (_isMp3Streaming) return;
-
-    // 1. WebSocket 연결
-    if (_wsChannel == null) {
-      _wsChannel = WebSocketChannel.connect(Uri.parse('${getWsBaseUrl()}/ws/analyze'));
-      _wsChannel!.stream.listen((message) {
-        print('서버로부터 메시지: $message');
-        _handleWsMessage(message);
-      }, onDone: () {
-        print('WebSocket 연결 종료');
-        _wsChannel = null;
-      }, onError: (error) {
-        print('WebSocket 에러: $error');
-        _wsChannel = null;
-      });
-      print('WebSocket 연결 시도');
-    }
-
-    // 2. JS interop 콜백 설정
-    js.context['onPCMChunk'] = (dynamic jsUint8Array) {
-      try {
-        final length = js_util.getProperty(jsUint8Array, 'length') as int;
-        final list = List<int>.generate(
-          length,
-          (i) => js_util.getProperty(jsUint8Array, i) as int,
-        );
-        final uint8List = Uint8List.fromList(list);
-        if (_wsChannel != null) {
-          _wsChannel!.sink.add(uint8List);
-        }
-      } catch (e) {
-        print('Error converting JS Uint8Array to Uint8List: $e');
-      }
-    };
-    js.context['onMp3StreamEnd'] = () {
-      if (_wsChannel != null) {
-        _wsChannel!.sink.close();
-        _wsChannel = null;
-      }
-      setState(() {
-        _isMp3Streaming = false;
-      });
-    };
-
-    // 3. 서버에 스트림 시작 요청
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    _wsChannel!.sink.add(jsonEncode({
-      "event": "send_conversation",
-      "user_info": auth.isLoggedIn ? {"user_id": auth.userId} : null
-    }));
-
-    // 4. UI 상태 변경 및 타이머 시작
-    setState(() {
-      _isMp3Streaming = true;
-      _lastRecordSeconds = 0;
-      _recordSeconds = 0;
-    });
-
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _recordSeconds++;
-      });
-    });
-  }
-
-  // mp3 스트리밍 정지
-  void _stopMp3Streaming() {
-    js.context.callMethod('stopMp3Streaming');
-    _timer?.cancel();
-    _timer = null;
-    _lastRecordSeconds = _recordSeconds;
-    if (_wsChannel != null) {
-      _wsChannel!.sink.close();
-      _wsChannel = null;
-    }
-    setState(() {
-      _isMp3Streaming = false;
-    });
-  }
-
-  // 기본 파일 자동 선택
-  Future<void> _setDefaultMp3File() async {
-    js.context['onMp3FilePickedForMain'] = (file) {
-      setState(() {
-        _isMp3FilePicked = true;
-        _selectedMp3FileName = file != null && file.name != null ? file.name : '선택된 파일 없음';
-      });
-    };
-    js.context.callMethod('setDefaultMp3FileForMain');
-  }
-
-  // WebSocket 메시지 핸들러
-  void _handleWsMessage(dynamic message) {
-    try {
-      // JSON 형식이 아니면 무시
-      if (message is! String || !message.trim().startsWith('{') || !message.trim().endsWith('}')) {
-        return;
-      }
-      final data = jsonDecode(message);
-      if (data is Map) {
-        final event = data['event'];
-        if (event == 'emotion_analysis') {
-          final isSame = data['is_same'] as bool?;
-          final emotion = data['emotion'] as Map<String, dynamic>?;
-          String? koreanEmotion;
-          if (emotion != null && emotion['audio'] != null && emotion['audio']['korean'] != null) {
-            koreanEmotion = emotion['audio']['korean'] as String;
-          }
-          if (isSame != null && koreanEmotion != null) {
-            setState(() {
-              _speaker = isSame ? '본인' : '상대방';
-              _topEmotion = koreanEmotion;
-            });
-          }
-        } else if (event == 'send_conversation' && data['status'] == 'ok') {
-          // 서버가 준비되었으므로, 현재 상태에 따라 JS 스트리밍 함수 호출
-          if (_isMicRecording) {
-            js.context.callMethod('startPCMStream');
-            print('서버 준비 완료. PCM 스트림 시작.');
-          } else if (_isMp3Streaming) {
-            js.context.callMethod('startMp3StreamingForMain');
-            print('서버 준비 완료. MP3 스트림 시작.');
-          }
-        }
-      }
-    } catch (e) {
-      print('WebSocket 메시지 파싱 오류: $e');
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          '실시간 감정 통역',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
-            letterSpacing: 1.2,
-            shadows: [
-              Shadow(
-                color: Color(0x33000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: SvgPicture.asset('resources/icons/dehaze.svg', width: 28, height: 28),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MyPage()),
+            );
+          },
         ),
-        leading: null,
+        title: SvgPicture.asset('resources/icons/symbol_logo.svg', height: 32),
+        centerTitle: true,
         actions: [
-          Consumer<AuthProvider>(
-            builder: (context, auth, _) {
-              if (auth.isLoggedIn && auth.userName != null && auth.userName!.isNotEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    child: Text(
-                      '${auth.userName} 님',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFFFF6D00),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                );
-              } else {
-                return const SizedBox.shrink();
-              }
-            },
+          IconButton(
+            icon: SvgPicture.asset('resources/icons/search.svg', width: 28, height: 28),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: SvgPicture.asset('resources/icons/thread_unread.svg', width: 28, height: 28),
+            onPressed: () {},
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 화자/감정 표시 영역 추가
-            if (_speaker != null && _topEmotion != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 18),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.yellow[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber, width: 1.2),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              if (_showBanner)
+                Container(
+                  color: Colors.red[600],
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '목소리 학습을 통해 당신만의\n감정 표현 방식에 더 잘 맞춰드릴게요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 17),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () {
+                          setState(() {
+                            _showBanner = false;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 110), // 하단에 여유 padding
                   children: [
-                    Text('화자: $_speaker', style: const TextStyle(fontSize: 18)),
-                    const SizedBox(height: 8),
-                    Text('감정: $_topEmotion', style: const TextStyle(fontSize: 18)),
+                    // 프로필 영역 (예시)
+                    Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.grey,
+                          child: Icon(Icons.person, size: 20, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Consumer<AuthProvider>(
+                          builder: (context, auth, _) => Text(
+                            auth.isLoggedIn && auth.userName != null && auth.userName!.isNotEmpty
+                                ? auth.userName! + ' 님'
+                                : '미로그인',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    const Center(
+                      child: Text(
+                        '수정 중',
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    // 감정 기록 카드 여러 개
+                    for (int i = 1; i <= 8; i++) ...[
+                      Card(
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('감정 기록 $i', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Text('오늘의 감정: 행복, 슬픔, 분노 등'),
+                              const SizedBox(height: 4),
+                              Text('메모: 오늘은 특별한 일이 있었어요.'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    // 통계 보기 카드 여러 개
+                    for (int i = 1; i <= 4; i++) ...[
+                      Card(
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.bar_chart, color: Colors.blue),
+                              const SizedBox(width: 12),
+                              Text('통계 보기 $i', style: const TextStyle(fontSize: 16)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    // 기타 더미 카드
+                    for (int i = 1; i <= 6; i++) ...[
+                      Card(
+                        elevation: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('기타 내용 카드 $i'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ],
                 ),
               ),
-            // 버튼 Row (타이틀 아래)
-            Row(
+            ],
+          ),
+          // 플로팅 네비게이션 바 + 녹음 버튼
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                    backgroundColor: Colors.white,
-                    minimumSize: const Size(90, 34),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MyPage()),
-                    );
-                  },
-                  icon: const Text('🧑', style: TextStyle(fontSize: 14, color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
-                  label: Consumer<AuthProvider>(
-                    builder: (context, auth, _) => Text(
-                      auth.isLoggedIn ? '마이페이지' : '로그인',
-                      style: const TextStyle(
-                        color: Color(0xFFFF6D00),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                Container(
+                  margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+                  height: 80,
+                  width: 320, // 원하는 너비로 조정
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(200, 200, 200, 0.5),
+                    borderRadius: BorderRadius.circular(48),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: SvgPicture.asset('resources/icons/icon_home.svg', width: 42, height: 42, color: Colors.black),
+                          onPressed: () => _onItemTapped(0),
+                          splashRadius: 32,
+                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          hoverColor: Colors.white,
+                        ),
+                        IconButton(
+                          icon: SvgPicture.asset('resources/icons/forum.svg', width: 42, height: 42, color: Colors.black),
+                          onPressed: () => _onItemTapped(1),
+                          splashRadius: 32,
+                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          hoverColor: Colors.white,
+                        ),
+                        IconButton(
+                          icon: SvgPicture.asset('resources/icons/assignment.svg', width: 42, height: 42, color: Colors.black),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const EmotionReportListPage()),
+                            );
+                          },
+                          splashRadius: 32,
+                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          hoverColor: Colors.white,
+                        ),
+                        IconButton(
+                          icon: SvgPicture.asset('resources/icons/icon_test.svg', width: 42, height: 42, color: Colors.black),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const RecorderPageRealtime()),
+                            );
+                          },
+                          splashRadius: 32,
+                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          hoverColor: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.blue, width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                    backgroundColor: Colors.white,
-                    minimumSize: const Size(90, 34),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
+                Container(
+                  width: 80,
+                  height: 80,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.amber,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const EmotionReportPage()),
-                    );
-                  },
-                  icon: const Text('📄', style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold)),
-                  label: const Text(
-                    '감정 리포트',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 테스트용 Home 이동 버튼
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.green, width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                    backgroundColor: Colors.white,
-                    minimumSize: const Size(90, 34),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                    );
-                  },
-                  icon: const Icon(Icons.home, color: Colors.green, size: 18),
-                  label: const Text(
-                    'Home(테스트)',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: IconButton(
+                    icon: SvgPicture.asset('resources/icons/settings_voice.svg', width: 40, height: 40),
+                    onPressed: () => _onItemTapped(4),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            // 실시간 녹음 블럭
-            Container(
-              width: 320,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              margin: const EdgeInsets.only(bottom: 28),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD), // 연한 블루
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10),
-                    child: Text('실시간 녹음', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1976D2))),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _startRecording,
-                        child: const Text('시작'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1976D2),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton(
-                        onPressed: _isMicRecording ? _stopRecording : null,
-                        child: const Text('정지'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF64B5F6), // 시작과 비슷한 블루 계열
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // mp3 전송 블럭
-            Container(
-              width: 320,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9), // 연한 그린
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10),
-                    child: Text('mp3 전송', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF388E3C))),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _pickMp3File,
-                        child: const Text('파일 선택'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF388E3C),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: (_isMicRecording || _isMp3Streaming) ? null : _setDefaultMp3File,
-                        child: const Text('기본파일 선택'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF66BB6A),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: (_isMicRecording || _isMp3Streaming || !_isMp3FilePicked) ? null : _startMp3Streaming,
-                        child: const Text('시작'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF388E3C),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton(
-                        onPressed: _isMp3Streaming ? _stopMp3Streaming : null,
-                        child: const Text('정지'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isMp3Streaming ? const Color(0xFF388E3C) : const Color(0xFF81C784),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_selectedMp3FileName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.audiotrack, size: 18, color: Color(0xFF388E3C)),
-                          const SizedBox(width: 6),
-                          Text(
-                            '파일: $_selectedMp3FileName',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Color(0xFF388E3C),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            // 녹음중/정지 이모지와 시간 표시
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                (_isMicRecording || _isMp3Streaming)
-                    ? const Text('🔴', style: TextStyle(color: Colors.red, fontSize: 20))
-                    : const Text('⚫️', style: TextStyle(color: Colors.black, fontSize: 20)),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDuration((_isMicRecording || _isMp3Streaming) ? _recordSeconds : _lastRecordSeconds),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: 'ENV/.env');
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: HomePage(),
       ),
     );
   }
