@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'home.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -140,6 +141,11 @@ class _MyPageState extends State<MyPage> {
         if (data['success'] == true) {
           await Provider.of<AuthProvider>(context, listen: false)
               .login(data['user_id'], data['user_name'] ?? '');
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomePage()),
+            );
+          }
         } else {
           setState(() { _error = '로그인 실패'; });
         }
