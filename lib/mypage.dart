@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'home.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -127,7 +128,7 @@ class _MyPageState extends State<MyPage> {
     setState(() { _isLoading = true; _error = null; });
     final userId = _userIdController.text.trim();
     if (userId.isEmpty) {
-      setState(() { _error = 'User ID를 입력하세요'; _isLoading = false; });
+      setState(() { _error = '사용자 ID를 입력하세요'; _isLoading = false; });
       return;
     }
     try {
@@ -209,6 +210,7 @@ class _MyPageState extends State<MyPage> {
       _error = null;
       _userIdController.clear();
       _userNameController.clear();
+      _formKey.currentState?.reset();
     });
   }
 
@@ -218,6 +220,7 @@ class _MyPageState extends State<MyPage> {
       _error = null;
       _userIdController.clear();
       _userNameController.clear();
+      _formKey.currentState?.reset();
     });
   }
 
@@ -227,57 +230,85 @@ class _MyPageState extends State<MyPage> {
     if (!auth.isLoggedIn) {
       if (!_showSignup) {
         return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
-                  label: const Text(
-                    '돌아가기',
-                    style: TextStyle(
-                      color: Color(0xFFFF6D00),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Color(0xFFFF6D00),
-                  ),
+          backgroundColor: Colors.white,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              centerTitle: true,
+              title: const Text(
+                '마이페이지',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  letterSpacing: 1.1,
                 ),
-              ],
+              ),
+              leading: IconButton(
+                icon: SvgPicture.asset(
+                  'resources/icons/back.svg',
+                  width: 20,
+                  height: 20,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                splashRadius: 24,
+              ),
             ),
-            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-            elevation: 0,
           ),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 320),
+                constraints: const BoxConstraints(maxWidth: 340),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text('로그인', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
                       const SizedBox(height: 24),
                       SizedBox(
-                        width: 280,
+                        width: 260,
                         child: TextFormField(
                           controller: _userIdController,
                           decoration: const InputDecoration(
                             hintText: '사용자 ID',
+                            filled: true,
+                            fillColor: Color(0xFFFFF3E0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                            contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                           ),
-                          validator: (v) => v == null || v.isEmpty ? 'User ID를 입력하세요' : null,
+                          // validator: (v) => v == null || v.isEmpty ? '사용자 ID를 입력하세요' : null,
                         ),
                       ),
+                      if (_error == '사용자 ID를 입력하세요')
+                        Container(
+                          width: 260,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                            textAlign: TextAlign.left,
+                          ),
+                        ),
                       const SizedBox(height: 24),
-                      if (_error != null) ...[
-                        Text(_error!, style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 12),
-                      ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -289,7 +320,7 @@ class _MyPageState extends State<MyPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFFF6D00),
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 textStyle: const TextStyle(fontSize: 15),
                               ),
                               child: _isLoading ? const CircularProgressIndicator() : const Text('로그인'),
@@ -305,7 +336,7 @@ class _MyPageState extends State<MyPage> {
                                 backgroundColor: Colors.white,
                                 foregroundColor: const Color(0xFFFF6D00),
                                 side: const BorderSide(color: Color(0xFFFF6D00), width: 1.2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 textStyle: const TextStyle(fontSize: 15),
                               ),
                               child: const Text('회원가입'),
@@ -322,39 +353,56 @@ class _MyPageState extends State<MyPage> {
         );
       } else {
         return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Text('🧑', style: TextStyle(fontSize: 18, color: Color(0xFFFF6D00))),
-                  label: const Text(
-                    '돌아가기',
-                    style: TextStyle(
-                      color: Color(0xFFFF6D00),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Color(0xFFFF6D00),
-                  ),
+          backgroundColor: Colors.white,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              centerTitle: true,
+              title: const Text(
+                '마이페이지',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  letterSpacing: 1.1,
                 ),
-              ],
+              ),
+              leading: IconButton(
+                icon: SvgPicture.asset(
+                  'resources/icons/back.svg',
+                  width: 20,
+                  height: 20,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                splashRadius: 24,
+              ),
             ),
-            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-            elevation: 0,
           ),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 320),
+                constraints: const BoxConstraints(maxWidth: 340),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text('회원가입', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
                       const SizedBox(height: 24),
@@ -365,7 +413,7 @@ class _MyPageState extends State<MyPage> {
                           decoration: const InputDecoration(
                             hintText: '사용자 ID',
                           ),
-                          validator: (v) => v == null || v.isEmpty ? 'User ID를 입력하세요' : null,
+                          validator: (v) => v == null || v.isEmpty ? '사용자 ID를 입력하세요' : null,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -376,7 +424,7 @@ class _MyPageState extends State<MyPage> {
                           decoration: const InputDecoration(
                             hintText: '사용자 이름',
                           ),
-                          validator: (v) => v == null || v.isEmpty ? 'User Name을 입력하세요' : null,
+                          validator: (v) => v == null || v.isEmpty ? '사용자 이름을 입력하세요' : null,
                         ),
                       ),
                       const SizedBox(height: 24),

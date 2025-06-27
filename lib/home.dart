@@ -53,36 +53,183 @@ class _HomePageState extends State<HomePage> {
       ),
       drawer: Drawer(
         child: Container(
-          color: Colors.amber[700],
-          child: ListView(
-            padding: EdgeInsets.zero,
+          color: Colors.black,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Colors.amber[800],
+              // Profile section with close button
+              Container(
+                width: double.infinity,
+                height: 120,
+                color: Colors.black,
+                child: Stack(
+                  children: [
+                    // Profile info with real user data
+                    Positioned(
+                      left: 24,
+                      top: 36,
+                      child: Consumer<AuthProvider>(
+                        builder: (context, auth, _) {
+                          if (!(auth.isLoggedIn && auth.userName != null && auth.userName!.isNotEmpty)) {
+                            // 미로그인: 아이콘과 텍스트 세로 가운데 정렬, 텍스트 클릭 시 mypage.dart 이동
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: Colors.grey[800],
+                                  child: const Icon(Icons.person, color: Colors.white, size: 32),
+                                ),
+                                const SizedBox(width: 16),
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(builder: (_) => const MyPage()),
+                                      );
+                                    },
+                                    child: Container(
+                                      height: 56,
+                                      alignment: Alignment.centerLeft,
+                                      child: const Text(
+                                        '미로그인',
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, decoration: TextDecoration.underline),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else {
+                            // 로그인: 이름, id 세로 정렬, 이름 클릭 시 mypage.dart 이동
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: Colors.grey[800],
+                                  child: const Icon(Icons.person, color: Colors.white, size: 32),
+                                ),
+                                const SizedBox(width: 16),
+                                Container(
+                                  height: 56,
+                                  alignment: Alignment.centerLeft,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(builder: (_) => const MyPage()),
+                                            );
+                                          },
+                                          child: Text(
+                                            auth.userName!,
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, decoration: TextDecoration.underline),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        auth.userId ?? '-',
+                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    // Close button (top right)
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: IconButton(
+                        icon: SvgPicture.asset(
+                          'resources/icons/close_sidebar.svg',
+                          width: 17,
+                          height: 17,
+                          color: Colors.white,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        splashRadius: 22,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('메뉴', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
-              ListTile(
-                leading: const Icon(Icons.person, color: Colors.white),
-                title: const Text('마이페이지', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MyPage()),
-                  );
-                },
+              // Calendar and below: white background
+              Container(
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Image.asset(
+                        'resources/images/calendar_sample.png',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.white),
-                title: const Text('로그아웃', style: TextStyle(color: Colors.white)),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await Provider.of<AuthProvider>(context, listen: false).logout();
-                  if (mounted) {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                  }
-                },
+              // Everything below calendar is white
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          height: 1,
+                          color: Color(0xFFF0F0F0),
+                        ),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text('내목소리 업로드', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                          ),
+                        ),
+                        Container(
+                          width: double.infinity,
+                          height: 1,
+                          color: Color(0xFFF0F0F0),
+                        ),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text('실시간 번역 명령어', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                          ),
+                        ),
+                        Container(
+                          width: double.infinity,
+                          height: 1,
+                          color: Color(0xFFF0F0F0),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -120,26 +267,6 @@ class _HomePageState extends State<HomePage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 110), // 하단에 여유 padding
                   children: [
-                    // 프로필 영역 (예시)
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, size: 20, color: Colors.white),
-                        ),
-                        const SizedBox(width: 8),
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, _) => Text(
-                            auth.isLoggedIn && auth.userName != null && auth.userName!.isNotEmpty
-                                ? auth.userName! + ' 님'
-                                : '미로그인',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
                     const Center(
                       child: Text(
                         '수정 중',
