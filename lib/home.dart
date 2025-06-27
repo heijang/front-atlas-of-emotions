@@ -339,7 +339,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
                   height: 80,
-                  width: 320, // 원하는 너비로 조정
+                  width: 280, // 원하는 너비로 조정
                   decoration: BoxDecoration(
                     color: const Color.fromRGBO(200, 200, 200, 0.5),
                     borderRadius: BorderRadius.circular(48),
@@ -355,19 +355,19 @@ class _HomePageState extends State<HomePage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 2),
                         IconButton(
                           icon: SvgPicture.asset('resources/icons/icon_home.svg', width: 42, height: 42, color: Colors.black),
                           onPressed: () => _onItemTapped(0),
                           splashRadius: 32,
-                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          constraints: const BoxConstraints(minWidth: 52, minHeight: 56),
                           hoverColor: Colors.white,
                         ),
                         IconButton(
                           icon: SvgPicture.asset('resources/icons/forum.svg', width: 42, height: 42, color: Colors.black),
                           onPressed: () => _onItemTapped(1),
                           splashRadius: 32,
-                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          constraints: const BoxConstraints(minWidth: 52, minHeight: 56),
                           hoverColor: Colors.white,
                         ),
                         IconButton(
@@ -378,7 +378,7 @@ class _HomePageState extends State<HomePage> {
                             );
                           },
                           splashRadius: 32,
-                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          constraints: const BoxConstraints(minWidth: 52, minHeight: 56),
                           hoverColor: Colors.white,
                         ),
                         IconButton(
@@ -389,15 +389,15 @@ class _HomePageState extends State<HomePage> {
                             );
                           },
                           splashRadius: 32,
-                          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                          constraints: const BoxConstraints(minWidth: 52, minHeight: 56),
                           hoverColor: Colors.white,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 2),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 2),
                 Container(
                   width: 80,
                   height: 80,
