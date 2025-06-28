@@ -46,11 +46,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: SvgPicture.asset('resources/icons/search.svg', width: 28, height: 28),
             onPressed: () {},
-          ),
-          IconButton(
-            icon: SvgPicture.asset('resources/icons/thread_unread.svg', width: 28, height: 28),
-            onPressed: () {},
-          ),
+            ),
         ],
       ),
       drawer: Drawer(
@@ -83,22 +79,13 @@ class _HomePageState extends State<HomePage> {
                                   child: const Icon(Icons.person, color: Colors.white, size: 32),
                                 ),
                                 const SizedBox(width: 16),
-                                MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.of(context).pop();
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(builder: (_) => const MyPage()),
-                                      );
-                                    },
-                                    child: Container(
-                                      height: 56,
-                                      alignment: Alignment.centerLeft,
-                                      child: const Text(
-                                        '미로그인',
-                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, decoration: TextDecoration.underline),
-                                      ),
+                                Container(
+                                  child: Container(
+                                    height: 56,
+                                    alignment: Alignment.centerLeft,
+                                    child: const Text(
+                                      '미로그인',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, decoration: TextDecoration.underline),
                                     ),
                                   ),
                                 ),

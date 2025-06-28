@@ -137,7 +137,7 @@ class _LoginPageState extends State<LoginPage> {
             automaticallyImplyLeading: false,
             centerTitle: true,
             title: const Text(
-              '로그인',
+              '마이페이지',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
@@ -260,7 +260,7 @@ class _LoginPageState extends State<LoginPage> {
             automaticallyImplyLeading: false,
             centerTitle: true,
             title: const Text(
-              '회원가입',
+              '마이페이지',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,

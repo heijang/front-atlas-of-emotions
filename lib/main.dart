@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'home.dart';
 import 'mypage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +20,29 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: const IntroScreen(),
+      child: ScreenUtilInit(
+        designSize: Size(430, 932),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return Container(
+              color: Colors.black, // 배경을 검정으로
+              child: Center(
+                child: Container(
+                  width: 430,
+                  height: 932,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: child,
+                  ),
+                ),
+              ),
+            );
+          },
+          home: const IntroScreen(),
+        ),
       ),
     );
   }
@@ -83,7 +104,7 @@ class IntroScreen extends StatelessWidget {
                     text: '게스트 모드로 시작하기',
                     outlined: true,
                     onPressed: () {
-                      Navigator.of(context).pushReplacement(
+                      Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const HomePage()),
                       );
                     },
