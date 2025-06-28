@@ -204,9 +204,21 @@ class _HomePageState extends State<HomePage> {
                         ),
                         GestureDetector(
                           onTap: () {},
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('내목소리 업로드', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                SizedBox(width: 2),
+                                SvgPicture.asset(
+                                  'resources/icons/mic_upload.svg',
+                                  width: 16,
+                                  height: 16,
+                                  color: Colors.black,
+                                ),
+                                SizedBox(width: 12),
+                                Text('내목소리 업로드', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
                           ),
                         ),
                         Container(
@@ -216,9 +228,21 @@ class _HomePageState extends State<HomePage> {
                         ),
                         GestureDetector(
                           onTap: () {},
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('실시간 번역 명령어', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                SizedBox(width: 2),
+                                SvgPicture.asset(
+                                  'resources/icons/mic_realtime.svg',
+                                  width: 16,
+                                  height: 16,
+                                  color: Colors.black,
+                                ),
+                                SizedBox(width: 12),
+                                Text('실시간 번역 명령어', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
                           ),
                         ),
                         Container(
@@ -230,6 +254,44 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
+              ),
+              Consumer<AuthProvider>(
+                builder: (context, auth, _) {
+                  return Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    padding: const EdgeInsets.only(bottom: 24, top: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () async {
+                              Navigator.of(context).pop();
+                              if (auth.isLoggedIn) {
+                                await Provider.of<AuthProvider>(context, listen: false).logout();
+                              } else {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const MyPage()),
+                                );
+                              }
+                            },
+                            child: Text(
+                              auth.isLoggedIn ? '로그아웃' : '로그인',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black54,
+                                fontWeight: FontWeight.normal,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),
