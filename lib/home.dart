@@ -5,6 +5,8 @@ import 'realtime_emotional_translation.dart';
 import 'package:provider/provider.dart';
 import 'auth_provider.dart';
 import 'mypage.dart';
+import 'main.dart';
+import 'realtime_record.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -202,22 +204,30 @@ class _HomePageState extends State<HomePage> {
                           height: 1,
                           color: Color(0xFFF0F0F0),
                         ),
-                        GestureDetector(
-                          onTap: () {},
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              children: [
-                                SizedBox(width: 2),
-                                SvgPicture.asset(
-                                  'resources/icons/mic_upload.svg',
-                                  width: 16,
-                                  height: 16,
-                                  color: Colors.black,
-                                ),
-                                SizedBox(width: 12),
-                                Text('내목소리 업로드', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
-                              ],
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const MyPage()),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                children: [
+                                  SizedBox(width: 2),
+                                  SvgPicture.asset(
+                                    'resources/icons/mic_upload.svg',
+                                    width: 16,
+                                    height: 16,
+                                    color: Colors.black,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('내목소리 업로드', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -271,6 +281,10 @@ class _HomePageState extends State<HomePage> {
                               Navigator.of(context).pop();
                               if (auth.isLoggedIn) {
                                 await Provider.of<AuthProvider>(context, listen: false).logout();
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (_) => const IntroScreen()),
+                                  (route) => false,
+                                );
                               } else {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(builder: (_) => const MyPage()),
@@ -478,7 +492,11 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: IconButton(
                     icon: SvgPicture.asset('resources/icons/settings_voice.svg', width: 40, height: 40),
-                    onPressed: () => _onItemTapped(4),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RealtimeRecordPage()),
+                      );
+                    },
                   ),
                 ),
               ],
