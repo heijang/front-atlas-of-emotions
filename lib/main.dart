@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           builder: (context, child) {
             return Container(
-              color: Colors.black, // 배경을 검정으로
+              color: const Color(0xFF1F1F1F), // UIColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 1)
               child: Center(
                 child: Container(
                   width: 430,
@@ -54,7 +54,7 @@ class IntroScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFC436), // 더 진한 노랑
+      backgroundColor: const Color(0xFF3D82D6),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -78,7 +78,7 @@ class IntroScreen extends StatelessWidget {
                     '우리가 말하지 못한 진심까지,\n감정을 통역하다',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.black87,
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
