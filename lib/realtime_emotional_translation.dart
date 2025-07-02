@@ -4,6 +4,7 @@ import 'mypage.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
+import 'realtime_record.dart';
 
 class RealtimeEmotionalTranslationPage extends StatefulWidget {
   const RealtimeEmotionalTranslationPage({Key? key}) : super(key: key);
@@ -248,7 +249,11 @@ class _RealtimeEmotionalTranslationPageState extends State<RealtimeEmotionalTran
                     width: 220,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const RealtimeRecordPage()),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFC435),
                         foregroundColor: Colors.black,
