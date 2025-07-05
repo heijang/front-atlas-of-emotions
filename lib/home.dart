@@ -368,7 +368,7 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Container(
-                  margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+                  margin: const EdgeInsets.only(left: 8, right: 8, bottom: 24),
                   height: 80,
                   width: 280, // 원하는 너비로 조정
                   decoration: BoxDecoration(
@@ -444,7 +444,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   width: 80,
                   height: 80,
-                  margin: const EdgeInsets.only(bottom: 24),
+                  margin: const EdgeInsets.only(bottom: 24, right: 8),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Colors.amber,
