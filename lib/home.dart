@@ -5,9 +5,10 @@ import 'realtime_emotional_translation.dart';
 import 'realtime_emotional_translation_test.dart';
 import 'package:provider/provider.dart';
 import 'auth_provider.dart';
-import 'mypage.dart';
+import 'voice_emotion_onboarding.dart';
 import 'main.dart';
 import 'realtime_record.dart';
+import 'login.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -116,7 +117,7 @@ class _HomePageState extends State<HomePage> {
                                           onTap: () {
                                             Navigator.of(context).pop();
                                             Navigator.of(context).push(
-                                              MaterialPageRoute(builder: (_) => const MyPage()),
+                                              MaterialPageRoute(builder: (_) => const VoiceEmotionOnboarding()),
                                             );
                                           },
                                           child: Text(
@@ -198,7 +199,7 @@ class _HomePageState extends State<HomePage> {
                             onTap: () {
                               Navigator.of(context).pop();
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const MyPage()),
+                                MaterialPageRoute(builder: (_) => const VoiceEmotionOnboarding()),
                               );
                             },
                             child: Padding(
@@ -275,7 +276,7 @@ class _HomePageState extends State<HomePage> {
                                 );
                               } else {
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const MyPage()),
+                                  MaterialPageRoute(builder: (_) => const LoginPage()),
                                 );
                               }
                             },

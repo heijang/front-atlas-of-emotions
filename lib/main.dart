@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 import 'auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'home.dart';
-import 'mypage.dart';
+import 'voice_emotion_onboarding.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'login.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,14 +75,21 @@ class IntroScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '우리가 말하지 못한 진심까지,\n감정을 통역하다',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const VoiceEmotionOnboarding()),
+                      );
+                    },
+                    child: const Text(
+                      '우리가 말하지 못한 진심까지,\n감정을 통역하다',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -95,7 +103,7 @@ class IntroScreen extends StatelessWidget {
                     text: '회원가입/로그인',
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const MyPage()),
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
                       );
                     },
                   ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'mypage.dart';
+import 'voice_emotion_onboarding.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
@@ -119,7 +119,7 @@ class _RealtimeEmotionalTranslationPageState extends State<RealtimeEmotionalTran
                 child: GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MyPage()),
+                      MaterialPageRoute(builder: (_) => const VoiceEmotionOnboarding()),
                     );
                   },
                   child: Container(
