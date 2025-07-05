@@ -165,13 +165,12 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 1,
+                    child: Flexible(
                       child: Image.asset(
                         'resources/images/calendar_sample.png',
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        height: double.infinity,
+                        height: null,
                       ),
                     ),
                   ),
@@ -370,7 +369,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   margin: const EdgeInsets.only(left: 8, right: 8, bottom: 24),
                   height: 80,
-                  width: 280, // 원하는 너비로 조정
+                  width: 270, // 원하는 너비로 조정
                   decoration: BoxDecoration(
                     color: const Color.fromRGBO(200, 200, 200, 0.5),
                     borderRadius: BorderRadius.circular(48),
@@ -395,7 +394,7 @@ class _HomePageState extends State<HomePage> {
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
-                            icon: SvgPicture.asset('resources/icons/icon_home.svg', width: 42, height: 42, color: Colors.black),
+                            icon: SvgPicture.asset('resources/icons/icon_home.svg', width: 40, height: 40, color: Colors.black),
                             onPressed: () => _onItemTapped(0),
                             splashRadius: 40,
                             constraints: const BoxConstraints(minWidth: 58, minHeight: 58),
@@ -403,7 +402,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         IconButton(
-                          icon: SvgPicture.asset('resources/icons/forum.svg', width: 42, height: 42, color: Colors.black),
+                          icon: SvgPicture.asset('resources/icons/forum.svg', width: 40, height: 40, color: Colors.black),
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(builder: (_) => const RealtimeEmotionalTranslationPage()),
@@ -414,7 +413,7 @@ class _HomePageState extends State<HomePage> {
                           hoverColor: Colors.white,
                         ),
                         IconButton(
-                          icon: SvgPicture.asset('resources/icons/assignment.svg', width: 42, height: 42, color: Colors.black),
+                          icon: SvgPicture.asset('resources/icons/assignment.svg', width: 40, height: 40, color: Colors.black),
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(builder: (_) => const EmotionReportListPage()),
@@ -425,7 +424,7 @@ class _HomePageState extends State<HomePage> {
                           hoverColor: Colors.white,
                         ),
                         IconButton(
-                          icon: SvgPicture.asset('resources/icons/icon_test.svg', width: 42, height: 42, color: Colors.black),
+                          icon: SvgPicture.asset('resources/icons/icon_test.svg', width: 40, height: 40, color: Colors.black),
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(builder: (_) => const RecorderPageRealtime()),

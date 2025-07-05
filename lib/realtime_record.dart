@@ -119,7 +119,7 @@ class _RealtimeRecordPageState extends State<RealtimeRecordPage> {
             const SizedBox(height: 64),
             // Waveform placeholder fixed height
             Container(
-              height: 405,
+              height: 365,
               width: double.infinity,
               color: Color(0xFF18181A),
               child: const WebWaveform(),

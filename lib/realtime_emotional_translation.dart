@@ -130,7 +130,7 @@ class _RealtimeEmotionalTranslationPageState extends State<RealtimeEmotionalTran
                         fit: BoxFit.cover,
                       ),
                     ),
-                    height: 120,
+                    height: MediaQuery.of(context).size.height * 0.15,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Stack(
                       children: [

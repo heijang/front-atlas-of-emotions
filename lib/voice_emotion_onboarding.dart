@@ -410,246 +410,283 @@ class _VoiceEmotionOnboardingState extends State<VoiceEmotionOnboarding>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            // 상단 AppBar (흰색 배경, 좌측 close.svg만)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: SvgPicture.asset('resources/icons/close.svg', width: 20, height: 20, color: Colors.black),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            if (_currentStep == 0) ...[
-              // 배경 이미지 + 안내 텍스트
-              Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 660,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage('resources/images/onboarding_bg1.png'),
-                        fit: BoxFit.cover,
-                      ),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // 상단 AppBar (흰색 배경, 좌측 close.svg만)
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: SvgPicture.asset('resources/icons/close.svg', width: 20, height: 20, color: Colors.black),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: Container(
-                      alignment: Alignment.topRight,
-                      padding: const EdgeInsets.only(top: 48, right: 32, left: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '감정 분석의 정확도를 높여보세요',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '사람마다 감정을 표현하는 말투와 억양은 다릅니다.\n목소리 학습을 통해 당신만의 감정 표현 방식에\n더 정밀하게 맞춰드릴게요.',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 15,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // 하단 버튼
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 240,
-                        height: 80,
-                        child: ElevatedButton(
-                          onPressed: _handleNext,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(40),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            '시작하기',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-              if (_currentStepData.note != null) ...[
+              if (_currentStep == 0) ...[
+                // 배경 이미지 + 안내 텍스트
+                Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                          image: AssetImage('resources/images/onboarding_bg1.png'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Container(
+                        alignment: Alignment.topRight,
+                        padding: const EdgeInsets.only(top: 48, right: 32, left: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '감정 분석의 정확도를 높여보세요',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '사람마다 감정을 표현하는 말투와 억양은 다릅니다.\n목소리 학습을 통해 당신만의 감정 표현 방식에\n더 정밀하게 맞춰드릴게요.',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 15,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // 하단 버튼
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    _currentStepData.note!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                      height: 1.5,
-                      fontWeight: FontWeight.w700,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 240,
+                          height: 80,
+                          child: ElevatedButton(
+                            onPressed: _handleNext,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(40),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              '시작하기',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ] else ... [
-              // 기존 온보딩 스텝 UI (step1~)
-              // 진행 바
-              _buildProgressBar(),
-              // 메인 콘텐츠
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // 배경 이미지/색상 영역
-                      Container(
-                        height: 250,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: _currentStepData.bgGradient,
-                          color: _currentStepData.bgGradient == null
-                              ? _currentStepData.bgColor
-                              : null,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: _currentStepData.isComplete
-                              ? Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 64,
-                                      height: 64,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[300],
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Container(
-                                          width: 32,
-                                          height: 32,
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[400],
-                                            shape: BoxShape.circle,
+                if (_currentStepData.note != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      _currentStepData.note!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                        height: 1.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ] else ... [
+                // 기존 온보딩 스텝 UI (step1~)
+                // 진행 바
+                _buildProgressBar(),
+                // 메인 콘텐츠
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        // 배경 이미지/색상 영역
+                        Container(
+                          height: 250,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: _currentStepData.bgGradient,
+                            color: _currentStepData.bgGradient == null
+                                ? _currentStepData.bgColor
+                                : null,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Center(
+                            child: _currentStepData.isComplete
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 64,
+                                        height: 64,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[300],
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[400],
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      '목소리 업로드 완료',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '감정 분석 정확도를 높이기 위해\n목소리를 학습했어요',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.grey[500],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : _currentStepData.text != null
-                                  ? Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                                      child: Text(
-                                        _currentStepData.text!,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w500,
-                                          height: 1.5,
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        '목소리 업로드 완료',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
                                         ),
                                       ),
-                                    )
-                                  : null,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '감정 분석 정확도를 높이기 위해\n목소리를 학습했어요',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : _currentStepData.text != null
+                                    ? Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                                        child: Text(
+                                          _currentStepData.text!,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      // 제목과 설명
-                      Text(
-                        _currentStepData.title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: 24),
+                        // 제목과 설명
+                        Text(
+                          _currentStepData.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _currentStepData.subtitle,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                          height: 1.5,
+                        const SizedBox(height: 8),
+                        Text(
+                          _currentStepData.subtitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                      // 녹음 섹션
-                      _buildRecordingSection(),
-                      const Spacer(),
-                      // 하단 버튼들
-                      Column(
-                        children: [
-                          if (_currentStepData.nextText != null)
+                        // 녹음 섹션
+                        _buildRecordingSection(),
+                        const Spacer(),
+                        // 하단 버튼들
+                        Column(
+                          children: [
+                            if (_currentStepData.nextText != null)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: (_currentStep > 0 && _recordingProgress == 0)
+                                      ? null
+                                      : _handleNext,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: (_currentStep > 0 && _recordingProgress == 0)
+                                        ? Colors.grey[200]
+                                        : Colors.black,
+                                    foregroundColor: (_currentStep > 0 && _recordingProgress == 0)
+                                        ? Colors.grey[400]
+                                        : Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    _currentStepData.nextText!,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (_currentStepData.nextText != null)
+                              const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: (_currentStep > 0 && _recordingProgress == 0)
-                                    ? null
-                                    : _handleNext,
+                                onPressed: _currentStepData.isComplete
+                                    ? _handleComplete
+                                    : _currentStep == 0
+                                        ? _handleNext
+                                        : _handleNext,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: (_currentStep > 0 && _recordingProgress == 0)
-                                      ? Colors.grey[200]
-                                      : Colors.black,
-                                  foregroundColor: (_currentStep > 0 && _recordingProgress == 0)
-                                      ? Colors.grey[400]
-                                      : Colors.white,
+                                  backgroundColor: _currentStepData.isComplete
+                                      ? Colors.yellow[400]
+                                      : _currentStep == 0
+                                          ? Colors.black
+                                          : Colors.grey[100],
+                                  foregroundColor: _currentStepData.isComplete
+                                      ? Colors.black
+                                      : _currentStep == 0
+                                          ? Colors.white
+                                          : Colors.grey[600],
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -657,7 +694,7 @@ class _VoiceEmotionOnboardingState extends State<VoiceEmotionOnboarding>
                                   elevation: 0,
                                 ),
                                 child: Text(
-                                  _currentStepData.nextText!,
+                                  _currentStepData.buttonText,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
@@ -665,50 +702,15 @@ class _VoiceEmotionOnboardingState extends State<VoiceEmotionOnboarding>
                                 ),
                               ),
                             ),
-                          if (_currentStepData.nextText != null)
-                            const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _currentStepData.isComplete
-                                  ? _handleComplete
-                                  : _currentStep == 0
-                                      ? _handleNext
-                                      : _handleNext,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _currentStepData.isComplete
-                                    ? Colors.yellow[400]
-                                    : _currentStep == 0
-                                        ? Colors.black
-                                        : Colors.grey[100],
-                                foregroundColor: _currentStepData.isComplete
-                                    ? Colors.black
-                                    : _currentStep == 0
-                                        ? Colors.white
-                                        : Colors.grey[600],
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: Text(
-                                _currentStepData.buttonText,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
